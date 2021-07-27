@@ -1,0 +1,3 @@
+io/quarkus/bot/reporting/maven/extension/ReportingMavenExtension.class
+io/quarkus/bot/reporting/maven/extension/ReportingMavenExtension$BuildReport.class
+io/quarkus/bot/reporting/maven/extension/ReportingMavenExtension$ProjectReport.class
