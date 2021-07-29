@@ -1,12 +1,13 @@
 package io.quarkus.bot.reporting.maven.extension;
 
 import java.io.FileOutputStream;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.maven.AbstractMavenLifecycleParticipant;
 import org.apache.maven.MavenExecutionException;
+import org.apache.maven.execution.BuildFailure;
+import org.apache.maven.execution.BuildSuccess;
 import org.apache.maven.execution.BuildSummary;
 import org.apache.maven.execution.MavenExecutionResult;
 import org.apache.maven.execution.MavenSession;
@@ -14,73 +15,81 @@ import org.apache.maven.project.MavenProject;
 import org.codehaus.plexus.component.annotations.Component;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
-@Component(role = AbstractMavenLifecycleParticipant.class, hint = "quarkus-github-bot")
+@Component(role = AbstractMavenLifecycleParticipant.class, hint = "quarkus-build-report")
 public class ReportingMavenExtension extends AbstractMavenLifecycleParticipant {
-    static ObjectMapper objectMapper=new ObjectMapper();
-    public void afterSessionStart(MavenSession session)
-            throws MavenExecutionException {
 
-    }
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
 
-    public void afterProjectsRead(MavenSession session)
-            throws MavenExecutionException {
-
-    }
-
+    @Override
     public void afterSessionEnd(MavenSession session)
             throws MavenExecutionException {
 
-        Path path;
-        ProjectReport projectReport = new ProjectReport();
-
-        System.out.println("This is the afterSessionEnd method. ");
-
         MavenExecutionResult result = session.getResult();
         List<MavenProject> projects = result.getTopologicallySortedProjects();
-        ArrayList<String> buildResults = new ArrayList<String>();
+
+        BuildReport buildReport = new BuildReport();
 
         for (MavenProject project : projects) {
-            ArrayList<Object> buildResult = new ArrayList<Object>();
             BuildSummary buildSummary = result.getBuildSummary(project);
 
             if (buildSummary == null) {
-                continue;
+                buildReport.addProjectReport(ProjectReport.skipped(project.getName(), null));
+            } else if (buildSummary instanceof BuildFailure) {
+                buildReport.addProjectReport(ProjectReport.failure(project.getName(), null, null));
+            } else if (buildSummary instanceof BuildSuccess) {
+                buildReport.addProjectReport(ProjectReport.success(project.getName(), null));
             }
 
-            buildResult.add(projectReport.getName());
-            buildResult.add(projects.indexOf(project));
-            buildResult.add(buildSummary.getProject().getArtifactId());
-
-            buildResults.add(String.valueOf(buildResult));
+            // TODO  buildResult.add(buildSummary.getProject().getArtifactId());
         }
 
-        System.out.println(String.valueOf(buildResults));
-
-        try {
-            FileOutputStream file = new FileOutputStream("target/beer.json");
-            objectMapper.writeValue(file, String.valueOf(buildResults));
-            file.flush();
-            file.close();
+        try(FileOutputStream file = new FileOutputStream("beer.json")) {
+            System.out.println(OBJECT_MAPPER.writeValueAsString(buildReport));
+            OBJECT_MAPPER.writeValue(file, buildReport);
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    class BuildReport {
-        private List<ProjectReport> projectReports;
+    static class BuildReport {
+
+        private List<ProjectReport> projectReports = new ArrayList<>();
+
+        public void addProjectReport(ProjectReport projectReport) {
+            this.projectReports.add(projectReport);
+        }
 
         public List<ProjectReport> getProjectReports() {
             return this.projectReports;
-
         }
     }
 
-    class ProjectReport {
+    static class ProjectReport {
         private String name;
         private String status;
         private String baseDir;
         private String errorMessage;
+
+        public static ProjectReport success(String name, String baseDir) {
+            return new ProjectReport(name, "success", baseDir, null);
+        }
+
+        public static ProjectReport failure(String name, String baseDir, String errorMessage) {
+            return new ProjectReport(name, "error", baseDir, errorMessage);
+        }
+
+        public static ProjectReport skipped(String name, String baseDir) {
+            return new ProjectReport(name, "skipped", baseDir, null);
+        }
+
+        private ProjectReport(String name, String status, String baseDir, String errorMessage) {
+            this.name = name;
+            this.status = status;
+            this.baseDir = baseDir;
+            this.errorMessage = errorMessage;
+        }
 
         // getters
         public String getName() {
