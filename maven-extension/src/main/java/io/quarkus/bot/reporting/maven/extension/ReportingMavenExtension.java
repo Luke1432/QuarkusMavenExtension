@@ -15,7 +15,7 @@ import org.codehaus.plexus.component.annotations.Component;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-@Component(role = AbstractMavenLifecycleParticipant.class, hint = "beer")
+@Component(role = AbstractMavenLifecycleParticipant.class, hint = "quarkus-github-bot")
 public class ReportingMavenExtension extends AbstractMavenLifecycleParticipant {
     static ObjectMapper objectMapper=new ObjectMapper();
     public void afterSessionStart(MavenSession session)
