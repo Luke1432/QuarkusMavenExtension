@@ -35,14 +35,13 @@ public class ReportingMavenExtension extends AbstractMavenLifecycleParticipant {
             BuildSummary buildSummary = result.getBuildSummary(project);
 
             if (buildSummary == null) {
-                buildReport.addProjectReport(ProjectReport.skipped(project.getName(), null));
+                buildReport.addProjectReport(ProjectReport.skipped(project.getName(), null, project.getGroupId(), project.getArtifactId()));
             } else if (buildSummary instanceof BuildFailure) {
-                buildReport.addProjectReport(ProjectReport.failure(project.getName(), null, null));
+                buildReport.addProjectReport(ProjectReport.failure(project.getName(), null, null, project.getGroupId(), project.getArtifactId()));
             } else if (buildSummary instanceof BuildSuccess) {
-                buildReport.addProjectReport(ProjectReport.success(project.getName(), null));
+                buildReport.addProjectReport(ProjectReport.success(project.getName(), null, project.getGroupId(), project.getArtifactId()));
             }
 
-            // TODO  buildResult.add(buildSummary.getProject().getArtifactId());
         }
 
         try(FileOutputStream file = new FileOutputStream("beer.json")) {
@@ -71,24 +70,27 @@ public class ReportingMavenExtension extends AbstractMavenLifecycleParticipant {
         private String status;
         private String baseDir;
         private String errorMessage;
+        private String groupId;
+        private String artifactId;
 
-        public static ProjectReport success(String name, String baseDir) {
-            return new ProjectReport(name, "success", baseDir, null);
+        public static ProjectReport success(String name, String baseDir, String groupId, String artifactId) {
+            return new ProjectReport(name, "success", baseDir, null, groupId, artifactId);
         }
 
-        public static ProjectReport failure(String name, String baseDir, String errorMessage) {
-            return new ProjectReport(name, "error", baseDir, errorMessage);
+        public static ProjectReport failure(String name, String baseDir, String errorMessage, String groupId, String artifactId) {
+            return new ProjectReport(name, "error", baseDir, errorMessage, groupId, artifactId);
         }
 
-        public static ProjectReport skipped(String name, String baseDir) {
-            return new ProjectReport(name, "skipped", baseDir, null);
+        public static ProjectReport skipped(String name, String baseDir, String groupId, String artifactId) {
+            return new ProjectReport(name, "skipped", baseDir, null, groupId, artifactId);
         }
 
-        private ProjectReport(String name, String status, String baseDir, String errorMessage) {
+        private ProjectReport(String name, String status, String baseDir, String errorMessage, String groupId, String artifactId) {
             this.name = name;
             this.status = status;
             this.baseDir = baseDir;
             this.errorMessage = errorMessage;
+            this.artifactId=artifactId;
         }
 
         // getters
@@ -106,6 +108,9 @@ public class ReportingMavenExtension extends AbstractMavenLifecycleParticipant {
 
         public String getErrorMessage() {
             return this.errorMessage;
+        }
+        public String getGroupId() {
+            return this.groupId;
         }
 
     }
