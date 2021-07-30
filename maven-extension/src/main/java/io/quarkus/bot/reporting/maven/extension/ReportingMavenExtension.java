@@ -2,9 +2,12 @@ package io.quarkus.bot.reporting.maven.extension;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.maven.AbstractMavenLifecycleParticipant;
 import org.apache.maven.MavenExecutionException;
@@ -38,28 +41,36 @@ public class ReportingMavenExtension extends AbstractMavenLifecycleParticipant {
 
         for (MavenProject project : projects) {
             BuildSummary buildSummary = result.getBuildSummary(project);
+            Path projectPath = topLevelProjectPath.relativize(project.getBasedir().toPath());
 
             if (buildSummary == null) {
                 buildReport.addProjectReport(
-                        ProjectReport.skipped(project.getName(), project.getBasedir(), project.getGroupId(),
+                        ProjectReport.skipped(project.getName(), projectPath, project.getGroupId(),
                                 project.getArtifactId()));
             } else if (buildSummary instanceof BuildFailure) {
                 buildReport.addProjectReport(
-                        ProjectReport.failure(project.getName(), project.getBasedir(), result.getExceptions(),
+                        ProjectReport.failure(project.getName(), projectPath,
+                                result.getExceptions().stream().map(t -> t.getMessage().replaceAll("\u001B\\[[;\\d]*m", ""))
+                                        .collect(Collectors.toList()),
                                 project.getGroupId(), project.getArtifactId()));
             } else if (buildSummary instanceof BuildSuccess) {
                 buildReport.addProjectReport(
-                        ProjectReport.success(project.getName(), project.getBasedir(), project.getGroupId(),
+                        ProjectReport.success(project.getName(), projectPath, project.getGroupId(),
                                 project.getArtifactId()));
             }
 
         }
 
-        try (FileOutputStream file = new FileOutputStream("beer.json")) {
-            System.out.println(OBJECT_MAPPER.writeValueAsString(buildReport));
+        try {
+            Files.createDirectories(Path.of("target"));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        try (FileOutputStream file = new FileOutputStream("target/build-report.json")) {
             OBJECT_MAPPER.writeValue(file, buildReport);
         } catch (Exception e) {
-            System.out.println("Exception in afterEndSession");
+            e.printStackTrace();
         }
     }
 
@@ -78,30 +89,30 @@ public class ReportingMavenExtension extends AbstractMavenLifecycleParticipant {
 
     static class ProjectReport {
         private String name;
-        private String status;
-        private File baseDir;
-        private List<Throwable> errors;
+        private ReportingMavenExtension.StatusValues status;//make this an enum
+        private String baseDir;
+        private List<String> errors;
         private String groupId;
         private String artifactId;
 
-        public static ProjectReport success(String name, File baseDir, String groupId, String artifactId) {
-            return new ProjectReport(name, "success", baseDir, null, groupId, artifactId);
+        public static ProjectReport success(String name, Path baseDir, String groupId, String artifactId) {
+            return new ProjectReport(name, StatusValues.SUCCESS, baseDir, Collections.emptyList(), groupId, artifactId);
         }
 
-        public static ProjectReport failure(String name, File baseDir, List<Throwable> errors, String groupId,
+        public static ProjectReport failure(String name, Path baseDir, List<String> errors, String groupId,
                 String artifactId) {
-            return new ProjectReport(name, "error", baseDir, errors, groupId, artifactId);
+            return new ProjectReport(name, StatusValues.FAILURE, baseDir, errors, groupId, artifactId);
         }
 
-        public static ProjectReport skipped(String name, File baseDir, String groupId, String artifactId) {
-            return new ProjectReport(name, "skipped", baseDir, null, groupId, artifactId);
+        public static ProjectReport skipped(String name, Path baseDir, String groupId, String artifactId) {
+            return new ProjectReport(name, StatusValues.SKIPPED, baseDir, Collections.emptyList(), groupId, artifactId);
         }
 
-        private ProjectReport(String name, String status, File baseDir, List<Throwable> errors, String groupId,
+        private ProjectReport(String name, ReportingMavenExtension.StatusValues status, Path baseDir, List<String> errors, String groupId,
                 String artifactId) {
             this.name = name;
             this.status = status;
-            this.baseDir = baseDir;
+            this.baseDir = baseDir.toString();
             this.errors = errors;
             this.artifactId = artifactId;
             this.groupId = groupId;
@@ -112,15 +123,15 @@ public class ReportingMavenExtension extends AbstractMavenLifecycleParticipant {
             return this.name;
         }
 
-        public String getStatus() {
+        public ReportingMavenExtension.StatusValues getStatus() {
             return this.status;
         }
 
-        public File getBaseDir() {
+        public String getBaseDir() {
             return this.baseDir;
         }
 
-        public List<Throwable> getErrorMessage() {
+        public List<String> getErrors() {
             return this.errors;
         }
 
@@ -132,5 +143,12 @@ public class ReportingMavenExtension extends AbstractMavenLifecycleParticipant {
             return this.groupId;
         }
 
+    }
+
+    //enum here
+    enum StatusValues {
+        SUCCESS,
+        FAILURE,
+        SKIPPED
     }
 }
