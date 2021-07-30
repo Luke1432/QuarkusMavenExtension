@@ -108,7 +108,8 @@ public class ReportingMavenExtension extends AbstractMavenLifecycleParticipant {
             return new ProjectReport(name, StatusValues.SKIPPED, baseDir, Collections.emptyList(), groupId, artifactId);
         }
 
-        private ProjectReport(String name, ReportingMavenExtension.StatusValues status, Path baseDir, List<String> errors, String groupId,
+        private ProjectReport(String name, ReportingMavenExtension.StatusValues status, Path baseDir, List<String> errors,
+                String groupId,
                 String artifactId) {
             this.name = name;
             this.status = status;
@@ -145,7 +146,6 @@ public class ReportingMavenExtension extends AbstractMavenLifecycleParticipant {
 
     }
 
-    //enum here
     enum StatusValues {
         SUCCESS,
         FAILURE,
